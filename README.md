@@ -9,10 +9,10 @@ Use Python 3.12 and the project environment:
 ```sh
 source .venv/bin/activate
 python -m pip install -r requirements-lock.txt
-jupyter lab
+python -m jupyterlab
 ```
 
-For a fresh environment, first run `python3 -m venv .venv`. Select that environment as the notebook kernel. Run notebooks from this `code-repo` directory. The lock file records tested packages; `requirements.txt` states compatibility ranges.
+For a fresh environment, first run `python3 -m venv .venv`. Select that environment as the notebook kernel. Run notebooks from the `idc6940-capstone-project` directory. The lock file records tested packages; `requirements.txt` states compatibility ranges.
 
 ## Notebook workflow
 
@@ -23,7 +23,7 @@ For a fresh environment, first run `python3 -m venv .venv`. Select that environm
 | `03_train_and_evaluate.ipynb` | Original chronological prediction-model comparison and test diagnostics. |
 | `04_probability_calibration.ipynb` | Supplementary probability repair using separately generated target-period labeled cohorts. |
 | `05_single_run_policy_study.ipynb` | Primary chronological prediction/optimization study, oracle, replications, sensitivities, and bootstrap. |
-| `06_study_results_and_report.ipynb` | Completion checks, independent oracle verification, uncertainty tables, figures, and report. |
+| `06_study_results_and_report.ipynb` | Methods-aligned results: source and synthetic distributions, calibration, prediction, optimization, uncertainty, 13 paper figures, oracle checks, and report. |
 
 Run 01–03 before 05–06. Notebook 04 addresses a separate representative-cohort calibration question: it does not demonstrate forecasting without target-period labels. Notebook 05 therefore selects its primary correction using chronological validation only. Notebook 03 remains the original baseline, not the corrected supplementary model.
 
