@@ -25,7 +25,7 @@ For a fresh environment, first run `python3 -m venv .venv`. Select that environm
 | `05_single_run_policy_study.ipynb` | Primary chronological prediction/optimization study, oracle, replications, sensitivities, and bootstrap. |
 | `06_study_results_and_report.ipynb` | Methods-aligned results: source and synthetic distributions, calibration, prediction, optimization, uncertainty, 13 paper figures, oracle checks, and report. |
 
-Run 01–03 before 05–06. Notebook 04 addresses a separate representative-cohort calibration question: it does not demonstrate forecasting without target-period labels. Notebook 05 therefore selects its primary correction using chronological validation only. Notebook 03 remains the original baseline, not the corrected supplementary model.
+Run 01–03 before 05–06. Notebook 06 has a `PAPER` flag in its first plotting cell: `True` (default) writes untitled, print-sized figures to `paper/figures/`; `False` writes the full-size titled figures to `data/study/figures/`. Notebook 04 addresses a separate representative-cohort calibration question: it does not demonstrate forecasting without target-period labels. Notebook 05 therefore selects its primary correction using chronological validation only. Notebook 03 remains the original baseline, not the corrected supplementary model.
 
 `auction_project.ipynb` is the superseded, uncalibrated demonstration. Its outputs are not capstone findings.
 
