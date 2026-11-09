@@ -41,6 +41,7 @@ All generated material goes under `data/`:
 - `training/binding_historical/`: initial train/validation/test splits and predictive results.
 - `training/calibration_repair/`: supplementary corrected model and independent-cohort diagnostics. `final_*` files contain its final verification.
 - `study/`: primary study checkpoints, policy results, numerical checks, uncertainty tables, figures, and `study_report.md`.
+- `datasets/`: vehicle-level data for the 30 replications of each main scenario (`scripts/export_datasets.py`; see its README). The study itself keeps only results.
 - `study_initial_checks/`: superseded pilot checkpoints; do not combine them with final study results.
 - `demo/` and `notebook_demo/`: earlier uncalibrated demonstrations.
 

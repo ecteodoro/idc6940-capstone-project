@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimizing Auction Floor Prices</title>
+<style>
+:root{
+  --navy:#0E2D6D; --green:#1C9C48; --light:#EAF0FA; --light2:#DCE6F7; --blue:#5C7BB8;
+  --gray:#4A5568; --orange:#C8553D; --white:#fff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#050b1c;overflow:hidden;font-family:Arial,Helvetica,sans-serif;color:var(--navy)}
+#viewport{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#stage{position:relative;width:1920px;height:1080px;transform-origin:center center;flex:none;background:#fff;overflow:hidden}
+.slide{position:absolute;inset:0;opacity:0;visibility:hidden;transition:opacity .5s ease,visibility 0s .5s;background-size:100% 100%;background-repeat:no-repeat}
+.slide.content{background-image:url(assets/bg-content.jpg)}
+.slide.title{background-image:url(assets/bg-title.jpg)}
+.slide.active{opacity:1;visibility:visible;transition:opacity .5s ease}
+.slide h1{position:absolute;left:432px;top:52px;width:1400px;font-size:62px;line-height:1.1;font-weight:700;color:var(--navy);
+  transform:translateY(-18px);opacity:0;transition:all .6s ease .15s}
+.slide.active h1{transform:none;opacity:1}
+.pn{position:absolute;right:56px;bottom:30px;font-size:26px;color:var(--gray)}
+.area{position:absolute;left:432px;top:190px;width:1400px;height:800px}
+.card{background:var(--light);border-radius:22px;padding:28px 32px}
+.card.navy{background:var(--navy);color:#fff}
+.abs{position:absolute}
+.g{color:var(--green)} .o{color:var(--orange)} .gr{color:var(--gray)} .b{font-weight:700}
+.t-sm{font-size:28px} .t-md{font-size:34px} .t-lg{font-size:42px} .t-xl{font-size:64px;font-weight:700}
+/* fragments + entrance */
+.frag{opacity:0;transform:translateY(24px);transition:opacity .55s ease,transform .55s ease}
+.frag.on{opacity:1;transform:none}
+.slide:not(.active) .frag.on{transition:none}
+.pop{opacity:0;transform:scale(.88);transition:opacity .5s ease,transform .5s cubic-bezier(.2,1.4,.4,1);transition-delay:calc(var(--i,0)*.14s + .35s)}
+.slide.active .pop{opacity:1;transform:none}
+/* title slide */
+.title h1{left:470px;top:456px;width:980px;font-size:56px;color:#fff;text-align:center;line-height:1.15}
+.title .sub{position:absolute;left:470px;top:760px;width:980px;text-align:center;color:#fff;font-size:34px;font-style:italic;
+  opacity:0;transition:opacity .8s ease .8s}
+.title.active .sub{opacity:1}
+/* bars */
+.bars{display:flex;align-items:flex-end;gap:26px;height:100%}
+.bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.bar .col{width:100%;border-radius:10px 10px 0 0;transform:scaleY(0);transform-origin:bottom;
+  transition:transform 1s cubic-bezier(.2,.8,.2,1);transition-delay:calc(var(--i)*.15s + .3s)}
+.slide.active .bar .col{transform:scaleY(1)}
+.bar .val{font-weight:700;font-size:30px;margin-bottom:8px;opacity:0;transition:opacity .5s ease;transition-delay:calc(var(--i)*.15s + 1s)}
+.slide.active .bar .val{opacity:1}
+.bar .lab{font-size:24px;color:var(--gray);text-align:center;margin-top:12px;height:70px;line-height:1.15}
+/* stat */
+.stat{background:var(--light);border-radius:22px;text-align:center;padding:20px}
+.stat .n{font-size:64px;font-weight:700;color:var(--green)}
+.stat .d{font-size:26px;color:var(--navy);margin-top:6px}
+/* chips */
+.num{width:64px;height:64px;border-radius:50%;background:var(--navy);color:#fff;font-weight:700;font-size:30px;
+  display:flex;align-items:center;justify-content:center;flex:none}
+/* slider */
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:12px;border-radius:6px;background:#C5D1EA;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:44px;height:44px;border-radius:50%;background:var(--green);border:4px solid #fff;box-shadow:0 2px 8px #0004;cursor:pointer}
+input[type=range]::-moz-range-thumb{width:36px;height:36px;border-radius:50%;background:var(--green);border:4px solid #fff;cursor:pointer}
+.seg{display:inline-flex;border-radius:14px;overflow:hidden;border:3px solid var(--navy)}
+.seg button{font:700 28px Arial;padding:10px 26px;background:#fff;color:var(--navy);border:0;cursor:pointer}
+.seg button.sel{background:var(--navy);color:#fff}
+.pill{display:inline-block;padding:10px 24px;border-radius:30px;font-weight:700;font-size:28px}
+.ok{background:#D8F1E0;color:#12692F} .bad{background:#F8DDD6;color:#9A3A25}
+svg text{font-family:Arial,Helvetica,sans-serif}
+.draw{stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 1.8s ease .4s}
+.slide.active .draw{stroke-dashoffset:0}
+.dot{opacity:0;transform:scale(.3);transform-box:fill-box;transform-origin:center;transition:all .4s ease;transition-delay:calc(var(--i)*.3s + .6s)}
+.slide.active .dot{opacity:1;transform:none}
+/* nav hud */
+#bar{position:fixed;left:0;bottom:0;height:6px;background:var(--green);transition:width .4s ease;z-index:5}
+#hud{position:fixed;right:14px;top:10px;color:#fff;font:600 15px Arial;opacity:.0;transition:opacity .3s;z-index:6;background:#0008;padding:6px 12px;border-radius:8px}
+#hud.show{opacity:1}
+#help{position:fixed;left:14px;top:10px;color:#fff;font:500 14px Arial;opacity:.55;z-index:6}
+.mono{font-family:"Cambria Math","STIX Two Math",Georgia,serif}
+ul.clean{list-style:none}
+ul.clean li{margin-bottom:14px}
+</style>
+</head>
+<body>
+<div id="viewport"><div id="stage">
+
+<!-- 1 TITLE -->
+<section class="slide title" data-notes="Introduce the project in one sentence.">
+  <h1>Optimizing Auction Floor Prices Under the Conversion–Revenue Tradeoff</h1>
+  <div class="sub">Ecil Teodoro · IDC6940 Capstone</div>
+</section>
+
+<!-- 2 WHY FLOORS (interactive) -->
+<section class="slide content">
+  <h1>Why the floor price matters</h1>
+  <div class="area">
+    <div class="abs frag" style="left:0;top:0;width:1400px">
+      <div class="t-md">A floor is the lowest offer the seller will accept. <b>Drag it</b> and watch the tradeoff.</div>
+    </div>
+    <div class="abs frag" style="left:0;top:80px;width:880px;height:420px"><svg id="qsvg" width="880" height="420"></svg></div>
+    <div class="abs frag" style="left:0;top:515px;width:880px;height:290px"><svg id="usvg" width="880" height="290"></svg></div>
+    <div class="abs frag card" style="left:920px;top:90px;width:480px;height:430px;padding:30px 34px">
+      <div class="t-sm gr">Floor / benchmark value</div>
+      <div id="aval" class="t-xl" style="margin:4px 0 14px">1.00</div>
+      <input id="aslider" type="range" min="0.60" max="1.40" step="0.01" value="1.00">
+      <div style="margin-top:34px;display:grid;gap:14px;font-size:32px">
+        <div>Chance of sale <b id="qout" class="g" style="float:right">50%</b></div>
+        <div>Price if sold <b id="pout" style="float:right">110%</b></div>
+        <div>Seller value <b id="uout" style="float:right">0.95</b></div>
+      </div>
+    </div>
+    <div class="abs frag" style="left:920px;top:550px;width:480px">
+      <div class="t-sm gr" style="margin-bottom:12px">Conversion requirement</div>
+      <div class="seg" id="tseg"><button data-t="0.5">50%</button><button data-t="0.6" class="sel">60%</button><button data-t="0.7">70%</button></div>
+      <div style="margin-top:22px"><span id="badge" class="pill ok">Meets requirement</span></div>
+      <div class="t-sm gr" style="margin-top:22px;line-height:1.25">Green dot = best floor that still meets the requirement. <i>Illustrative curves, not the fitted results.</i></div>
+    </div>
+  </div>
+  <div class="pn">2</div>
+</section>
+
+<!-- 3 QUESTION + APPROACH -->
+<section class="slide content">
+  <h1>Research question and approach</h1>
+  <div class="area">
+    <div class="t-md frag" style="width:1400px">How should a seller choose floors across many vehicles to maximize expected value while a minimum share of them sells?</div>
+    <div class="abs" style="top:170px;left:0;width:1400px;display:flex;gap:26px">
+      <div class="card pop frag" style="--i:0;flex:1;height:330px"><div class="num">1</div><div class="t-lg b" style="margin:14px 0 8px">Calibrate</div><div class="t-sm gr">Synthetic auctions matched to public Larsen data</div></div>
+      <div class="card pop frag" style="--i:1;flex:1;height:330px"><div class="num">2</div><div class="t-lg b" style="margin:14px 0 8px">Estimate</div><div class="t-sm gr">Sale probability and price given the floor</div></div>
+      <div class="card pop frag" style="--i:2;flex:1;height:330px"><div class="num">3</div><div class="t-lg b" style="margin:14px 0 8px">Optimize</div><div class="t-sm gr">Mixed-integer program picks each floor</div></div>
+      <div class="card pop frag" style="--i:3;flex:1;height:330px"><div class="num">4</div><div class="t-lg b" style="margin:14px 0 8px">Evaluate</div><div class="t-sm gr">Compare with simple rules and an oracle</div></div>
+    </div>
+    <div class="abs frag" style="top:560px;left:0;width:1400px">
+      <div class="t-md b g" style="margin-bottom:12px">Builds on</div>
+      <div class="t-sm gr" style="line-height:1.5">Myerson and Riley: optimal auctions and reserve prices · Guan and Xu: reserves can signal seller information · Larsen: bargaining after wholesale auctions · Elmachtoub and Grigas: prediction judged by decisions</div>
+    </div>
+  </div>
+  <div class="pn">3</div>
+</section>
+
+<!-- 4 DATA -->
+<section class="slide content">
+  <h1>Data: public records, simulated auctions</h1>
+  <div class="area">
+    <div class="abs" style="left:0;top:0;width:560px;line-height:1.35">
+      <div class="frag t-md"><b class="g">Source</b><br>Larsen public archive; dealer and fleet/lease runs calibrated separately</div>
+      <div class="frag t-md" style="margin-top:30px"><b class="g">Simulated</b><br>50,000 vehicles per dataset, 30 datasets per environment</div>
+      <div class="frag t-md" style="margin-top:30px"><b class="g">Assumed</b><br>Floor effect on sales (slope −4.0 on the logit scale), costs, retained value</div>
+    </div>
+    <div class="abs" style="left:640px;top:0;width:760px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;text-align:center;font-weight:700;font-size:28px;color:var(--gray);margin-bottom:14px">
+        <div>Historical floors</div><div>Randomized floors</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="card pop" style="--i:0;height:270px;display:flex;flex-direction:column;justify-content:center;text-align:center"><b class="t-md">Binding price</b><div class="t-sm gr" style="margin-top:8px">Sale price must exceed the floor</div></div>
+        <div class="card pop" style="--i:1;height:270px;background:var(--light2);display:flex;flex-direction:column;justify-content:center;text-align:center"><b class="t-md">Binding price</b><div class="t-sm gr" style="margin-top:8px">Sale price must exceed the floor</div></div>
+        <div class="card pop" style="--i:2;height:270px;background:var(--light2);display:flex;flex-direction:column;justify-content:center;text-align:center"><b class="t-md">Bargaining</b><div class="t-sm gr" style="margin-top:8px">Sale can close below the floor</div></div>
+        <div class="card pop" style="--i:3;height:270px;display:flex;flex-direction:column;justify-content:center;text-align:center"><b class="t-md">Bargaining</b><div class="t-sm gr" style="margin-top:8px">Sale can close below the floor</div></div>
+      </div>
+      <div class="frag t-sm gr" style="text-align:center;margin-top:24px">4 environments × 30 datasets = 120 refits</div>
+    </div>
+  </div>
+  <div class="pn">4</div>
+</section>
+
+<!-- 5 MODEL -->
+<section class="slide content">
+  <h1>Model: two parts and one value</h1>
+  <div class="area">
+    <div style="display:flex;gap:30px">
+      <div class="card frag" style="flex:1;height:320px">
+        <div class="t-md b g">Sale probability</div>
+        <div class="t-lg b mono" style="margin:18px 0 14px;font-size:40px">logit q(a) = β₀ + s(a) + X′β</div>
+        <div class="t-sm gr">Logistic + spline kept (log loss 0.526 vs boosted 0.529)</div>
+      </div>
+      <div class="card frag" style="flex:1;height:320px">
+        <div class="t-md b g">Price if sold</div>
+        <div class="t-lg b mono" style="margin:18px 0 14px;font-size:40px">log(P/m) = γ₀ + h(a) + X′γ + ε</div>
+        <div class="t-sm gr">Boosted kept (RMSE $112 vs ridge $147)</div>
+      </div>
+    </div>
+    <div class="card navy frag" style="margin-top:34px;height:190px;display:flex;align-items:center;justify-content:center">
+      <div class="mono b" style="font-size:42px;text-align:center">U(a) = q(a) · [ p(a) − fee ] + [ 1 − q(a) ] · ( retained value − holding cost )</div>
+    </div>
+    <div class="t-sm gr frag" style="margin-top:22px">a = floor / benchmark value · m = benchmark · p = expected price if sold</div>
+  </div>
+  <div class="pn">5</div>
+</section>
+
+<!-- 6 OPTIMIZATION -->
+<section class="slide content">
+  <h1>Optimization: one floor per vehicle</h1>
+  <div class="area">
+    <div class="card navy frag" style="position:absolute;left:0;top:0;width:800px;height:480px;line-height:1.6">
+      <div class="gr" style="color:#9DB4E8;font-size:26px">maximize</div>
+      <div class="mono b" style="font-size:42px">Σᵢ Σₖ zᵢₖ · Uᵢ(aᵢₖ)</div>
+      <div style="color:#9DB4E8;font-size:26px;margin-top:10px">subject to</div>
+      <div class="mono" style="font-size:36px">Σₖ zᵢₖ = 1  for every vehicle i</div>
+      <div class="mono" style="font-size:36px">Σᵢ Σₖ zᵢₖ · qᵢ(aᵢₖ) ≥ Nτ</div>
+      <div class="mono" style="font-size:36px">zᵢₖ ∈ {0, 1}</div>
+    </div>
+    <div class="abs" style="left:850px;top:0;width:550px;display:grid;gap:22px">
+      <div class="stat pop" style="--i:0;display:flex;align-items:center;gap:22px;text-align:left"><div class="n" data-count="27" style="min-width:150px">27</div><div class="d">candidate floors per vehicle</div></div>
+      <div class="stat pop" style="--i:1;display:flex;align-items:center;gap:22px;text-align:left"><div class="n" data-count="200" style="min-width:150px">200</div><div class="d">vehicles per portfolio</div></div>
+      <div class="stat pop" style="--i:2;display:flex;align-items:center;gap:22px;text-align:left"><div class="n" style="min-width:150px;font-size:48px">40–80%</div><div class="d">conversion targets τ</div></div>
+    </div>
+    <div class="abs frag t-md gr" style="left:0;top:540px;width:1400px;line-height:1.45">
+      Solver: HiGHS through SciPy, 30-second limit, optimality gap 10⁻⁶<br>
+      Candidates: floors seen in comparable training vehicles, plus common ratios and proportional cuts<br>
+      The constraint is on <i>expected</i> conversion, not on one auction’s realized outcome
+    </div>
+  </div>
+  <div class="pn">6</div>
+</section>
+
+<!-- 7 POLICIES -->
+<section class="slide content">
+  <h1>How the policies are compared</h1>
+  <div class="area">
+    <div id="pollist" class="abs" style="left:0;top:0;width:930px;display:grid;gap:18px"></div>
+    <div class="card frag abs" style="left:980px;top:0;width:420px;height:560px;line-height:1.3">
+      <div class="t-md b g">Regret</div><div class="t-sm" style="margin-bottom:26px">oracle value − policy value</div>
+      <div class="t-md b g">Split</div><div class="t-sm" style="margin-bottom:26px">60 / 20 / 20 by date</div>
+      <div class="t-md b g">Replications</div><div class="t-sm">30 per environment</div>
+    </div>
+    <div class="abs frag t-md gr" style="left:0;top:660px;width:1400px">Policies that miss the conversion target are not treated as valid alternatives.</div>
+  </div>
+  <div class="pn">7</div>
+</section>
+
+<!-- 8 CODE -->
+<section class="slide content">
+  <h1>Code sources and implementation</h1>
+  <div class="area">
+    <div class="card frag" style="position:absolute;left:0;top:0;width:520px;height:680px">
+      <div class="t-md b g" style="margin-bottom:18px">Pipeline</div>
+      <div class="t-sm" style="line-height:1.75">01 Source audit<br>02 Calibration and simulation<br>03 Train and evaluate<br>04 Probability calibration<br>05 Policy study<br>06 Results and report<br><b>auction_helpers.py + tests</b></div>
+    </div>
+    <div class="abs" style="left:560px;top:0;width:840px">
+      <div class="t-md b g frag" style="margin-bottom:16px">Challenges and what I did</div>
+      <div class="card frag" style="margin-bottom:20px"><div class="t-md b">Test period inspected early</div><div class="t-sm gr" style="margin-top:6px">Retired it; seasonal terms replace the calendar trend; fresh datasets and seeds</div></div>
+      <div class="card frag" style="margin-bottom:20px"><div class="t-md b">Oracle needs integration</div><div class="t-sm gr" style="margin-top:6px">41 vs 81 nodes: max conversion error 0.0005; Monte Carlo agrees</div></div>
+      <div class="card frag"><div class="t-md b">Reproducibility</div><div class="t-sm gr" style="margin-top:6px">Source hashes verified; per-replication datasets shared</div></div>
+    </div>
+    <div class="abs frag t-sm gr" style="left:560px;top:690px">Larsen’s archive is the data source; the pipeline is Python · NumPy · pandas · scikit-learn · SciPy</div>
+  </div>
+  <div class="pn">8</div>
+</section>
+
+<!-- 9 PREDICTION -->
+<section class="slide content">
+  <h1>Results: prediction</h1>
+  <div class="area">
+    <div class="abs" style="left:0;top:0;width:430px;display:grid;gap:28px">
+      <div class="stat pop" style="--i:0;padding:34px"><div class="n" data-count="0.82" data-dec="2">0.82</div><div class="d">AUC of the sale model</div></div>
+      <div class="stat pop" style="--i:1;padding:34px"><div class="n" data-count="112" data-pre="$">$112</div><div class="d">price RMSE, boosted model</div></div>
+    </div>
+    <div class="abs" style="left:500px;top:0;width:900px">
+      <div class="t-md b" style="margin-bottom:6px">Held-out conversion: predicted vs observed</div>
+      <div id="predchart" style="height:560px;display:flex;gap:60px;align-items:flex-end;padding:0 40px"></div>
+    </div>
+    <div class="abs frag t-md o b" style="left:500px;top:700px;width:900px">Fleet/lease is under-predicted, so the optimizer over-delivers conversion</div>
+  </div>
+  <div class="pn">9</div>
+</section>
+
+<!-- 10 POLICY RESULTS -->
+<section class="slide content">
+  <h1>Results: policies at 60% conversion</h1>
+  <div class="area">
+    <div class="abs" style="left:0;top:0;width:900px">
+      <div id="polbars" class="bars" style="height:600px"></div>
+      <div class="t-sm gr" style="margin-top:14px">Expected seller value per vehicle (bars start at $6,000)</div>
+    </div>
+    <div class="abs" style="left:950px;top:0;width:450px;display:grid;gap:24px">
+      <div class="stat frag"><div class="n" data-count="340" data-pre="+$">+$340</div><div class="d">vs common ratio, about 4%</div></div>
+      <div class="stat frag"><div class="n" data-count="262" data-pre="$">$262</div><div class="d">regret, vs $602 and $1,219</div></div>
+      <div class="card navy frag" style="font-size:27px;line-height:1.3;text-align:center">Optimized conversion 0.657 vs 0.60 required; the oracle sits at 0.60</div>
+    </div>
+  </div>
+  <div class="pn">10</div>
+</section>
+
+<!-- 11 FRONTIER -->
+<section class="slide content">
+  <h1>Results: the cost of more conversion</h1>
+  <div class="area">
+    <div class="abs" style="left:0;top:0;width:920px"><svg id="fsvg" width="920" height="700"></svg>
+      <div class="t-sm gr">Requirement on expected conversion · *feasible in 27% of replications</div></div>
+    <div class="abs" style="left:980px;top:0;width:420px">
+      <div class="t-md b g" style="margin-bottom:18px">Cost of +10 points</div>
+      <div style="display:grid;gap:22px">
+        <div class="stat frag"><div class="d gr">40 → 50%</div><div class="n" style="color:var(--navy)" data-count="134" data-pre="$">$134</div></div>
+        <div class="stat frag"><div class="d gr">50 → 60%</div><div class="n" style="color:var(--navy)" data-count="331" data-pre="$">$331</div></div>
+        <div class="stat frag"><div class="d gr">60 → 70%</div><div class="n" style="color:var(--navy)" data-count="679" data-pre="$">$679</div></div>
+      </div>
+      <div class="t-sm gr" style="margin-top:14px">per vehicle</div>
+    </div>
+  </div>
+  <div class="pn">11</div>
+</section>
+
+<!-- 12 ROBUSTNESS -->
+<section class="slide content">
+  <h1>Results: does the gain hold up?</h1>
+  <div class="area">
+    <div class="abs" style="left:0;top:0;width:580px">
+      <div class="t-md b" style="margin-bottom:10px">Gain over common ratio ($/vehicle)</div>
+      <div id="gainbars" class="bars" style="height:560px"></div>
+    </div>
+    <div class="abs" style="left:620px;top:0;width:800px">
+      <div class="t-md b" style="margin-bottom:10px">Change in value when one assumption moves</div>
+      <div id="sens" style="margin-top:20px"></div>
+    </div>
+    <div class="abs frag t-md gr" style="left:0;top:690px;width:1400px">Demand and retained value matter most; holding cost moves value by about $100.</div>
+  </div>
+  <div class="pn">12</div>
+</section>
+
+<!-- 13 CONCLUSION -->
+<section class="slide content">
+  <h1>Conclusions and next steps</h1>
+  <div class="area">
+    <div style="display:flex;gap:26px">
+      <div class="card frag" style="flex:1;height:520px"><div style="display:flex;align-items:center;gap:16px;margin-bottom:22px"><div class="num" style="background:var(--green)">1</div><div class="t-lg b g">Findings</div></div>
+        <ul class="clean t-sm"><li>+$340 per vehicle vs a common ratio at 60%</li><li>Within $262 of the oracle</li><li>Cost of conversion rises sharply</li></ul></div>
+      <div class="card frag" style="flex:1;height:520px"><div style="display:flex;align-items:center;gap:16px;margin-bottom:22px"><div class="num" style="background:var(--orange)">2</div><div class="t-lg b o">Limits</div></div>
+        <ul class="clean t-sm"><li>Floor response is assumed</li><li>Private information is simulated</li><li>Conversion under-predicted for fleet/lease</li></ul></div>
+      <div class="card frag" style="flex:1;height:520px"><div style="display:flex;align-items:center;gap:16px;margin-bottom:22px"><div class="num" style="background:var(--blue)">3</div><div class="t-lg b" style="color:var(--blue)">Next</div></div>
+        <ul class="clean t-sm"><li>Decision-focused training</li><li>Repeated auctions (up to 3 attempts)</li><li>Validate on real auction data</li></ul></div>
+    </div>
+    <div class="card navy frag t-sm" style="margin-top:34px;display:flex;align-items:center;height:120px">Results apply to the simulated environments; real-auction performance is still an empirical question.</div>
+  </div>
+  <div class="pn">13</div>
+</section>
+
+<!-- 14 QUESTIONS -->
+<section class="slide content">
+  <h1>Questions?</h1>
+  <div class="area">
+    <div class="t-xl frag" style="font-size:110px;margin-top:80px">Thank you</div>
+    <div class="t-md gr frag" style="margin-top:50px;line-height:1.6">Ecil Teodoro<br>Department of Mathematics and Statistics, University of West Florida<br>Code, datasets and paper: project repository (idc6940-capstone-project)</div>
+  </div>
+  <div class="pn">14</div>
+</section>
+
+</div></div>
+<div id="bar"></div>
+<div id="hud"></div>
+<div id="help">← → navigate · F fullscreen · T timer</div>
+
+<script>
+/* ------------------------------------------------ data (from paper tables) */
+const POLICIES=[
+ {n:"Assigned floor",d:"Keep the historical floor (clipped to supported bounds)",c:"#4A5568"},
+ {n:"Common ratio",d:"Same floor-to-benchmark ratio for every vehicle",c:"#5C7BB8"},
+ {n:"Proportional reduction",d:"Cut each assigned floor by a fixed percentage",c:"#5C7BB8"},
+ {n:"Optimized",d:"Mixed-integer program on fitted models",c:"#1C9C48"},
+ {n:"Oracle",d:"True response functions; private signal integrated out",c:"#0E2D6D"}];
+const POLVAL=[["Prop.<br>reduction",7091,"#5C7BB8"],["Common<br>ratio",7662,"#5C7BB8"],["Assigned<br>(misses 60%)",7663,"#B8C2D6"],["Optimized",8001,"#1C9C48"],["Oracle",8264,"#0E2D6D"]];
+const GAIN=[["Binding<br>historical",339.7,"#1C9C48"],["Binding<br>random.",349.6,"#1C9C48"],["Bargain.<br>historical",181.9,"#5C7BB8"],["Bargain.<br>random.",179.3,"#5C7BB8"]];
+const SENS=[["Weak demand",-730],["Strong demand",642],["Retained value 0.75",-369],["Retained value 0.95",378],["Strong private info",-104],["High holding cost",-103]];
+const FRONT=[[40,8466],[50,8332],[60,8001],[70,7322],[80,5763]];
+const fmt$=v=>"$"+Math.round(v).toLocaleString("en-US");
+
+/* ------------------------------------------------ build charts */
+function bars(el,items,min,max,hpx){
+  el.innerHTML=items.map((it,i)=>{
+    const h=Math.max(4,(it[1]-min)/(max-min)*hpx);
+    return `<div class="bar" style="--i:${i}"><div class="val" style="color:#0E2D6D">${fmt$(it[1])}</div><div class="col" style="height:${h}px;background:${it[2]}"></div><div class="lab">${it[0]}</div></div>`}).join("");
+}
+bars(document.getElementById("polbars"),POLVAL,6000,8700,470);
+bars(document.getElementById("gainbars"),GAIN,0,420,400);
+document.getElementById("pollist").innerHTML=POLICIES.map((p,i)=>
+ `<div class="card frag" style="display:flex;align-items:center;gap:22px;padding:16px 26px"><div class="num" style="background:${p.c}">${i+1}</div><div><b class="t-md">${p.n}</b><div class="t-sm gr">${p.d}</div></div></div>`).join("");
+document.getElementById("predchart").innerHTML=[["Dealer","floor 0.75–1.0",0.510,0.509],["Fleet/lease","floor 1.0–1.25",0.584,0.688]].map((g,gi)=>
+ `<div style="flex:1;display:flex;flex-direction:column;align-items:center">
+   <div class="bars" style="height:440px;gap:16px;width:100%">
+     ${[["Predicted",g[2],"#5C7BB8"],["Observed",g[3],"#0E2D6D"]].map((b,k)=>`<div class="bar" style="--i:${gi*2+k}"><div class="val">${b[1].toFixed(2)}</div><div class="col" style="height:${b[1]/0.75*400}px;background:${b[2]}"></div><div class="lab" style="height:40px;font-size:22px">${b[0]}</div></div>`).join("")}
+   </div><div class="t-md b" style="margin-top:10px">${g[0]}</div><div class="t-sm gr">${g[1]}</div></div>`).join("");
+// diverging sensitivity bars
+(function(){
+  const el=document.getElementById("sens"),mid=520,sc=0.235;
+  el.innerHTML=SENS.map(([l,v],i)=>{
+    const w=Math.abs(v)*sc,pos=v>0,col=pos?"#1C9C48":"#C8553D";
+    return `<div style="position:relative;height:84px">
+      <div style="position:absolute;left:0;top:14px;width:225px;font-size:25px;line-height:1.1;color:#4A5568">${l}</div>
+      <div class="sbar" style="position:absolute;top:10px;height:50px;width:${w}px;left:${pos?mid:mid-w}px;background:${col};border-radius:${pos?'0 8px 8px 0':'8px 0 0 8px'};transform:scaleX(0);transform-origin:${pos?'left':'right'};transition:transform .9s cubic-bezier(.2,.8,.2,1) ${.3+i*.15}s"></div>
+      <div style="position:absolute;top:16px;left:${pos?mid+w+10:mid-w-120}px;width:110px;text-align:${pos?'left':'right'};font-weight:700;font-size:28px">${(v>0?"+":"−")+"$"+Math.abs(v)}</div>
+    </div>`}).join("")+`<div style="position:absolute;left:${mid}px;top:0;bottom:0;width:2px;background:#B8C2D6"></div>`;
+  el.style.position="relative";
+  const s=document.createElement("style");s.textContent=".slide.active .sbar{transform:scaleX(1)!important}";document.head.appendChild(s);
+})();
+// frontier line chart
+(function(){
+  const svg=document.getElementById("fsvg"),L=110,R=880,T=40,B=620,ymin=5000,ymax=9000;
+  const X=i=>L+(R-L)*i/4,Y=v=>B-(v-ymin)/(ymax-ymin)*(B-T);
+  let g="";
+  for(let v=5000;v<=9000;v+=1000){g+=`<line x1="${L}" x2="${R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#E1E7F2" stroke-width="2"/><text x="${L-14}" y="${Y(v)+8}" text-anchor="end" font-size="24" fill="#4A5568">${fmt$(v)}</text>`}
+  g+=FRONT.map((p,i)=>`<text x="${X(i)}" y="${B+42}" text-anchor="middle" font-size="26" fill="#4A5568">${p[0]}%${i==4?"*":""}</text>`).join("");
+  const pts=FRONT.map((p,i)=>`${i?"L":"M"}${X(i)} ${Y(p[1])}`).join(" ");
+  g+=`<path class="draw" pathLength="1" d="${pts}" fill="none" stroke="#1C9C48" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>`;
+  g+=FRONT.map((p,i)=>`<g class="dot" style="--i:${i}"><circle cx="${X(i)}" cy="${Y(p[1])}" r="13" fill="#0E2D6D"/><text x="${X(i)+(i==4?-22:0)}" y="${Y(p[1])-(i==4?-8:26)}" text-anchor="${i==4?'end':'middle'}" font-size="27" font-weight="700" fill="#0E2D6D">${fmt$(p[1])}</text></g>`).join("");
+  svg.innerHTML=g;
+})();
+
+/* ------------------------------------------------ floor slider (slide 2) */
+(function(){
+  const sig=x=>1/(1+Math.exp(-x)),q=a=>sig(1.6-4*(a-0.6)),price=a=>a+0.10,U=a=>q(a)*(price(a)-0.0)+ (1-q(a))*0.80;
+  let tau=0.6;
+  const A0=0.6,A1=1.4,qs=document.getElementById("qsvg"),us=document.getElementById("usvg"),sl=document.getElementById("aslider");
+  const mk=(w,h,l,r,t,b,ymin,ymax)=>({X:a=>l+(r-l)*(a-A0)/(A1-A0),Y:v=>b-(v-ymin)/(ymax-ymin)*(b-t),l,r,t,b});
+  const Pq=mk(880,420,80,850,30,350,0,1),Pu=mk(880,290,80,850,20,230,0.65,1.0);
+  function best(){let bA=null,bU=-1;for(let a=A0;a<=A1+1e-9;a+=0.01){if(q(a)>=tau-1e-9&&U(a)>bU){bU=U(a);bA=a}}return bA}
+  function curve(P,f){let d="";for(let a=A0;a<=A1+1e-9;a+=0.02)d+=(d?"L":"M")+P.X(a).toFixed(1)+" "+P.Y(f(a)).toFixed(1);return d}
+  function draw(){
+    const a=+sl.value,b=best();
+    qs.innerHTML=`<text x="80" y="22" font-size="26" font-weight="700" fill="#0E2D6D">Chance of sale</text>
+      ${[0,.25,.5,.75,1].map(v=>`<line x1="80" x2="850" y1="${Pq.Y(v)}" y2="${Pq.Y(v)}" stroke="#E1E7F2" stroke-width="2"/><text x="66" y="${Pq.Y(v)+8}" text-anchor="end" font-size="22" fill="#4A5568">${Math.round(v*100)}%</text>`).join("")}
+      <line x1="80" x2="850" y1="${Pq.Y(tau)}" y2="${Pq.Y(tau)}" stroke="#C8553D" stroke-width="3" stroke-dasharray="10 8"/>
+      <text x="846" y="${Pq.Y(tau)-10}" text-anchor="end" font-size="22" fill="#C8553D" font-weight="700">requirement ${Math.round(tau*100)}%</text>
+      <path d="${curve(Pq,q)}" fill="none" stroke="#1C9C48" stroke-width="7" stroke-linecap="round"/>
+      <line x1="${Pq.X(a)}" x2="${Pq.X(a)}" y1="${Pq.t}" y2="${Pq.b}" stroke="#0E2D6D" stroke-width="3" opacity=".35"/>
+      <circle cx="${Pq.X(a)}" cy="${Pq.Y(q(a))}" r="13" fill="#0E2D6D"/>
+      ${[.6,.8,1,1.2,1.4].map(v=>`<text x="${Pq.X(v)}" y="395" text-anchor="middle" font-size="22" fill="#4A5568">${v.toFixed(1)}</text>`).join("")}`;
+    us.innerHTML=`<text x="80" y="16" font-size="26" font-weight="700" fill="#0E2D6D">Seller value (sale and no-sale)</text>
+      <path d="${curve(Pu,U)}" fill="none" stroke="#0E2D6D" stroke-width="7" stroke-linecap="round"/>
+      <line x1="${Pu.X(a)}" x2="${Pu.X(a)}" y1="${Pu.t}" y2="${Pu.b}" stroke="#0E2D6D" stroke-width="3" opacity=".35"/>
+      <circle cx="${Pu.X(a)}" cy="${Pu.Y(U(a))}" r="13" fill="#0E2D6D"/>
+      <circle cx="${Pu.X(b)}" cy="${Pu.Y(U(b))}" r="15" fill="#1C9C48" stroke="#fff" stroke-width="4"/>
+      <text x="${Pu.X(b)}" y="${Pu.Y(U(b))+44}" text-anchor="middle" font-size="22" fill="#12692F" font-weight="700">best allowed</text>
+      <text x="465" y="276" text-anchor="middle" font-size="22" fill="#4A5568">floor / benchmark value</text>`;
+    document.getElementById("aval").textContent=a.toFixed(2);
+    document.getElementById("qout").textContent=Math.round(q(a)*100)+"%";
+    document.getElementById("pout").textContent=Math.round(price(a)*100)+"%";
+    document.getElementById("uout").textContent=U(a).toFixed(2);
+    const ok=q(a)>=tau-1e-9,bd=document.getElementById("badge");
+    bd.textContent=ok?"Meets requirement":"Below requirement";bd.className="pill "+(ok?"ok":"bad");
+  }
+  sl.addEventListener("input",draw);
+  document.querySelectorAll("#tseg button").forEach(b=>b.addEventListener("click",()=>{
+    document.querySelectorAll("#tseg button").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");tau=+b.dataset.t;draw();}));
+  draw();
+})();
+
+/* ------------------------------------------------ navigation */
+const slides=[...document.querySelectorAll(".slide")],stage=document.getElementById("stage"),bar=document.getElementById("bar"),hud=document.getElementById("hud");
+let cur=0;const fragState=slides.map(()=>0);
+const frags=s=>[...s.querySelectorAll(".frag")];
+function fit(){const k=Math.min(innerWidth/1920,innerHeight/1080);stage.style.transform=`scale(${k})`;}
+addEventListener("resize",fit);fit();
+var countUp=function(s){
+  s.querySelectorAll("[data-count]").forEach(el=>{
+    const end=+el.dataset.count,dec=+(el.dataset.dec||0),pre=el.dataset.pre||"",t0=performance.now(),dur=1100;
+    const step=t=>{const p=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-p,3),v=end*e;
+      el.textContent=pre+(dec?v.toFixed(dec):Math.round(v).toLocaleString("en-US"));if(p<1)requestAnimationFrame(step)};
+    requestAnimationFrame(step)});
+};
+function show(i,fromBack){
+  i=Math.max(0,Math.min(slides.length-1,i));
+  slides.forEach((s,k)=>{s.classList.toggle("active",k===i)});
+  cur=i;const f=frags(slides[i]);
+  if(fromBack||/[?&]all/.test(location.search)){fragState[i]=f.length}else{fragState[i]=0}
+  f.forEach((e,k)=>e.classList.toggle("on",k<fragState[i]));
+  countUp(slides[i]);
+  bar.style.width=((i+1)/slides.length*100)+"%";
+  history.replaceState(null,"","#"+(i+1));
+}
+function next(){const f=frags(slides[cur]);
+  if(fragState[cur]<f.length){f[fragState[cur]].classList.add("on");fragState[cur]++}
+  else if(cur<slides.length-1)show(cur+1,false)}
+function prev(){const f=frags(slides[cur]);
+  if(fragState[cur]>0){fragState[cur]--;f[fragState[cur]].classList.remove("on")}
+  else if(cur>0)show(cur-1,true)}
+addEventListener("keydown",e=>{
+  if(e.target.tagName==="INPUT"&&(e.key.startsWith("Arrow")))return;
+  if(["ArrowRight","PageDown"," ","Enter"].includes(e.key)){e.preventDefault();next()}
+  else if(["ArrowLeft","PageUp","Backspace"].includes(e.key)){e.preventDefault();prev()}
+  else if(e.key==="Home")show(0);else if(e.key==="End")show(slides.length-1,true);
+  else if(e.key==="f"||e.key==="F"){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}
+  else if(e.key==="t"||e.key==="T"){timer=!timer;if(timer)t0=Date.now();tick()}
+});
+stage.addEventListener("click",e=>{if(e.target.closest("input,button,.seg"))return;e.clientX<innerWidth*0.25?prev():next()});
+let timer=false,t0=0;
+function tick(){if(!timer){hud.classList.remove("show");return}
+  const s=Math.floor((Date.now()-t0)/1000);hud.textContent=String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")+" / 12:00";
+  hud.classList.add("show");setTimeout(tick,500)}
+if(/[?&]static/.test(location.search)){const st=document.createElement("style");st.textContent="*{transition:none!important;animation:none!important}";document.head.appendChild(st);window.countUp=()=>{}}
+const start=parseInt(location.hash.slice(1))||1;show(start-1,false);
+</script>
+</body>
+</html>
