@@ -1,6 +1,7 @@
 .venv/
 __pycache__/
 *.pyc
+~$*
 .DS_Store
 outputs/
 .ipynb_checkpoints/
@@ -8,3 +9,5 @@ data/
 Larsen_used_car_bargaining_data_and_code/
 paper/*
 !paper/full_paper.pdf
+presentation/UWF_capstone_presentation_with_notes.pptx
+presentation/presenter_notes.txt

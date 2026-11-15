@@ -454,20 +454,18 @@ var countUp=function(s){
 };
 function show(i,fromBack){
   i=Math.max(0,Math.min(slides.length-1,i));
-  slides.forEach((s,k)=>{s.classList.toggle("active",k===i)});
   cur=i;const f=frags(slides[i]);
-  if(fromBack||/[?&]all/.test(location.search)){fragState[i]=f.length}else{fragState[i]=0}
-  f.forEach((e,k)=>e.classList.toggle("on",k<fragState[i]));
+  /* reset while the slide is still hidden (no transition), then fade every item in together */
+  f.forEach(e=>e.classList.remove("on"));void slides[i].offsetWidth;
+  slides.forEach((s,k)=>{s.classList.toggle("active",k===i)});
+  fragState[i]=f.length;
+  setTimeout(()=>{if(cur===i)f.forEach(e=>e.classList.add("on"))},40);
   countUp(slides[i]);
   bar.style.width=((i+1)/slides.length*100)+"%";
   history.replaceState(null,"","#"+(i+1));
 }
-function next(){const f=frags(slides[cur]);
-  if(fragState[cur]<f.length){f[fragState[cur]].classList.add("on");fragState[cur]++}
-  else if(cur<slides.length-1)show(cur+1,false)}
-function prev(){const f=frags(slides[cur]);
-  if(fragState[cur]>0){fragState[cur]--;f[fragState[cur]].classList.remove("on")}
-  else if(cur>0)show(cur-1,true)}
+function next(){if(cur<slides.length-1)show(cur+1,false)}
+function prev(){if(cur>0)show(cur-1,true)}
 addEventListener("keydown",e=>{
   if(e.target.tagName==="INPUT"&&(e.key.startsWith("Arrow")))return;
   if(["ArrowRight","PageDown"," ","Enter"].includes(e.key)){e.preventDefault();next()}
